@@ -1,0 +1,240 @@
+import argparse
+import os
+import torch
+import multiprocessing  
+from exp.exp_main import Exp_Main
+import random
+import numpy as np
+
+def main():
+
+    parser = argparse.ArgumentParser(description='Model family for Time Series Forecasting')
+
+    # random seed
+    parser.add_argument('--random_seed', type=int, default=2024, help='random seed')
+
+    # basic config
+    parser.add_argument('--is_training', type=int, required=True, default=1, help='status')
+    parser.add_argument('--model_id', type=str, required=True, default='test', help='model id')
+    parser.add_argument('--model', type=str, required=True, default='Autoformer',
+                        help='model name, options: [Autoformer, Informer, Transformer]')
+
+    # data loader
+    parser.add_argument('--data', type=str, required=True, default='ETTh1', help='dataset type')
+    parser.add_argument('--root_path', type=str, default='./data/ETT/', help='root path of the data file')
+    parser.add_argument('--data_path', type=str, default='ETTh1.csv', help='data file')
+    parser.add_argument('--features', type=str, default='M',
+                        help='forecasting task, options:[M, S, MS]; M:multivariate predict multivariate, S:univariate predict univariate, MS:multivariate predict univariate')
+    parser.add_argument('--target', type=str, default='OT', help='target feature in S or MS task')
+    parser.add_argument('--freq', type=str, default='h',
+                        help='freq for time features encoding, options:[s:secondly, t:minutely, h:hourly, d:daily, b:business days, w:weekly, m:monthly], you can also use more detailed freq like 15min or 3h')
+    parser.add_argument('--checkpoints', type=str, default='./checkpoints/', help='location of model checkpoints')
+
+    # forecasting task
+    parser.add_argument('--seq_len', type=int, default=96, help='input sequence length')
+    parser.add_argument('--label_len', type=int, default=0, help='start token length')  # fixed
+    parser.add_argument('--pred_len', type=int, default=96, help='prediction sequence length')
+    parser.add_argument('--inverse', action='store_true', help='inverse output data', default=False)
+
+    # CycleNet.
+    parser.add_argument('--cycle', type=int, default=24, help='cycle length')
+    parser.add_argument('--model_type', type=str, default='mlp', help='model type, options: [linear, mlp]')
+    parser.add_argument('--use_revin', type=int, default=1, help='1: use revin or 0: no revin')
+
+    # DLinear
+    # parser.add_argument('--individual', action='store_true', default=False, help='DLinear: a linear layer for each variate(channel) individually')
+
+    # PatchTST
+    parser.add_argument('--fc_dropout', type=float, default=0.05, help='fully connected dropout')
+    parser.add_argument('--head_dropout', type=float, default=0.0, help='head dropout')
+    parser.add_argument('--patch_len', type=int, default=16, help='patch length')
+    parser.add_argument('--stride', type=int, default=8, help='stride')
+    parser.add_argument('--padding_patch', default='end', help='None: None; end: padding on the end')
+    parser.add_argument('--revin', type=int, default=0, help='RevIN; True 1 False 0')
+    parser.add_argument('--affine', type=int, default=0, help='RevIN-affine; True 1 False 0')
+    parser.add_argument('--subtract_last', type=int, default=0, help='0: subtract mean; 1: subtract last')
+    parser.add_argument('--decomposition', type=int, default=0, help='decomposition; True 1 False 0')
+    parser.add_argument('--kernel_size', type=int, default=25, help='decomposition-kernel')
+    parser.add_argument('--individual', type=int, default=0, help='individual head; True 1 False 0')
+
+    # SegRNN
+    parser.add_argument('--rnn_type', default='gru', help='rnn_type')
+    parser.add_argument('--dec_way', default='pmf', help='decode way')
+    parser.add_argument('--seg_len', type=int, default=48, help='segment length')
+    parser.add_argument('--channel_id', type=int, default=1, help='Whether to enable channel position encoding')
+
+    # SparseTSF
+    parser.add_argument('--period_len', type=int, default=24, help='period_len')
+
+    # Formers 
+    parser.add_argument('--embed_type', type=int, default=0, help='0: default 1: value embedding + temporal embedding + positional embedding 2: value embedding + temporal embedding 3: value embedding + positional embedding 4: value embedding')
+    parser.add_argument('--enc_in', type=int, default=7, help='encoder input size')  # DLinear with --individual, use this hyperparameter as the number of channels
+    parser.add_argument('--dec_in', type=int, default=7, help='decoder input size')
+    parser.add_argument('--c_out', type=int, default=7, help='output size')
+    parser.add_argument('--d_model', type=int, default=512, help='dimension of model')# TimeMixer 512
+    parser.add_argument('--n_heads', type=int, default=8, help='num of heads')
+    parser.add_argument('--e_layers', type=int, default=2, help='num of encoder layers')#2
+    parser.add_argument('--d_layers', type=int, default=1, help='num of decoder layers')
+    parser.add_argument('--d_ff', type=int, default=2048, help='dimension of fcn')# TimeMixer 2048
+    parser.add_argument('--moving_avg', type=int, default=25, help='window size of moving average')
+    parser.add_argument('--factor', type=int, default=1, help='attn factor') #1
+    parser.add_argument('--distil', action='store_false',
+                        help='whether to use distilling in encoder, using this argument means not using distilling',
+                        default=True)
+    parser.add_argument('--dropout', type=float, default=0, help='dropout')
+    parser.add_argument('--embed', type=str, default='timeF',
+                        help='time features encoding, options:[timeF, fixed, learned]')
+    parser.add_argument('--activation', type=str, default='gelu', help='activation')
+    parser.add_argument('--output_attention', action='store_true', help='whether to output attention in ecoder')
+    parser.add_argument('--do_predict', action='store_true', help='whether to predict unseen future data')
+    parser.add_argument('--class_strategy', type=str, default='projection', help='projection/average/cls_token')
+    parser.add_argument('--use_norm', type=int, default=1, help='1: use revin or 0: no revin')
+
+    # optimization
+    parser.add_argument('--num_workers', type=int, default=0, help='data loader num workers')
+    parser.add_argument('--itr', type=int, default=1, help='experiments times')
+    parser.add_argument('--train_epochs', type=int, default=30, help='train epochs')
+    parser.add_argument('--batch_size', type=int, default=128, help='batch size of train input data')
+    parser.add_argument('--patience', type=int, default=5, help='early stopping patience')
+    parser.add_argument('--learning_rate', type=float, default=0.0001, help='optimizer learning rate')
+    parser.add_argument('--des', type=str, default='test', help='exp description')
+    parser.add_argument('--loss', type=str, default='mse', help='loss function')
+    parser.add_argument('--lradj', type=str, default='type3', help='adjust learning rate')
+    parser.add_argument('--pct_start', type=float, default=0.3, help='pct_start')
+    parser.add_argument('--use_amp', action='store_true', help='use automatic mixed precision training', default=False)
+
+    # GPU
+    parser.add_argument('--use_gpu', type=bool, default=True, help='use gpu')
+    parser.add_argument('--gpu', type=int, default=0, help='gpu')
+    parser.add_argument('--use_multi_gpu', action='store_true', help='use multiple gpus', default=False)
+    parser.add_argument('--devices', type=str, default='0,1', help='device ids of multile gpus')
+    parser.add_argument('--test_flop', action='store_true', default=False, help='See utils/tools for usage')
+
+    
+    parser.add_argument('--gnn_layers', type=int, default=2, help='number of GNN layers')
+    parser.add_argument('--refiner_dim', type=int, default=512, help='hidden dim for STR')
+    parser.add_argument('--graph_type', type=str, default='full', 
+                        help='graph structure type for GNN (full, linear, ring)')
+    parser.add_argument('--graph_k_neighbors', type=int, default=2,
+                    help='Number of neighbors (left and right) for static graph')
+    parser.add_argument('--gat_heads', type=int, default=2,
+                    help='Number of heads for GAT (only effective if model uses GAT)')
+    parser.add_argument('--cosine_k', type=int, default=5,
+                    help='Number of neighbors per node for cosine graph')
+    parser.add_argument('--use_bias', type=bool, default=True,
+                    help='Whether to use bias in channel_adjust layer')
+    parser.add_argument('--graph_top_k', type=int, default=None,
+                    help='Keep top-k strongest edges in adaptive graph (None means fully connected)')
+   
+    
+    
+    
+    parser.add_argument('--patch_stride', type=int, default=8)
+
+    #cyclering
+    
+    parser.add_argument('--st_hidden', type=int, default=128, help='hidden dimension for spatio-temporal refiner')
+    parser.add_argument('--st_layers', type=int, default=2, help='number of STBlock layers')
+    
+    parser.add_argument('--use_gat', action='store_true', help='use GAT instead of SAGEConv')
+    
+    #CrossGNN
+    parser.add_argument('--tvechidden', type=int, default=1, help='scale vec dim')
+    parser.add_argument('--nvechidden', type=int, default=1, help='variable vec dim')
+    parser.add_argument('--use_tgcn', type=int, default=1, help='use cross-scale gnn')
+    parser.add_argument('--use_ngcn', type=int, default=1, help='use cross-variable gnn')
+    parser.add_argument('--anti_ood', type=int, default=1, help='simple strategy to solve data shift')
+    parser.add_argument('--scale_number', type=int, default=5, help='scale number')
+    parser.add_argument('--hidden', type=int, default=16, help='channel dim')
+    parser.add_argument('--tk', type=int, default=10, help='constant w.r.t corss-scale neighbors')
+
+    #FourierGNN
+    parser.add_argument('--embed_size', type=int, default=128, help='hidden dimensions')
+    parser.add_argument('--hidden_size', type=int, default=256, help='hidden dimensions')
+    parser.add_argument('--exponential_decay_step', type=int, default=5)
+    parser.add_argument('--validate_freq', type=int, default=1)
+    parser.add_argument('--decay_rate', type=float, default=0.5)
+    parser.add_argument('--train_ratio', type=float, default=0.6)
+    parser.add_argument('--val_ratio', type=float, default=0.2)
+
+    
+
+    parser.add_argument('--residual_visualization', type=int, default=1, 
+                    help='whether to visualize residuals for NewAdvancedCycleNet, 1: enable, 0: disable')
+    #SOFTS
+    parser.add_argument('--d_core', type=int, default=None, 
+                    help='core dimension in STAR, default to d_model if not set')
+
+    
+
+
+    args = parser.parse_args()
+
+    # random seed
+    fix_seed = args.random_seed
+    random.seed(fix_seed)
+    torch.manual_seed(fix_seed)
+    np.random.seed(fix_seed)
+
+    args.use_gpu = True if torch.cuda.is_available() and args.use_gpu else False
+
+    if args.use_gpu and args.use_multi_gpu:
+        args.devices = args.devices.replace(' ', '')
+        device_ids = args.devices.split(',')
+        args.device_ids = [int(id_) for id_ in device_ids]
+        args.gpu = args.device_ids[0]
+
+    print('Args in experiment:')
+    print(args)
+
+    Exp = Exp_Main
+
+    if args.is_training:
+        for ii in range(args.itr):
+
+            # setting record of experiments
+            setting = '{}_{}_{}_ft{}_sl{}_pl{}_cycle{}_{}_hidden{}_seed{}'.format(
+                args.model_id,
+                args.model,
+                args.data,
+                args.features,
+                args.seq_len,
+                args.pred_len,
+                args.cycle,
+                args.model_type,
+                args.refiner_dim,    # GNN隐藏维度  
+                fix_seed)           # 随机种子
+
+            exp = Exp(args)  # set experiments
+            print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
+            exp.train(setting)
+
+            print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
+            exp.test(setting)
+
+            if args.do_predict:
+                print('>>>>>>>predicting : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
+                exp.predict(setting, True)
+
+            torch.cuda.empty_cache()
+    else:
+        ii = 0
+        setting = '{}_{}_{}_ft{}_sl{}_pl{}_cycle{}_{}_seed{}'.format(
+            args.model_id,
+            args.model,
+            args.data,
+            args.features,
+            args.seq_len,
+            args.pred_len,
+            args.cycle,
+            args.model_type,
+            fix_seed)
+
+        exp = Exp(args)  # set experiments
+        print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
+        exp.test(setting, test=1)
+        torch.cuda.empty_cache()
+
+if __name__ == '__main__':
+    multiprocessing.freeze_support()  # 添加 freeze_support()
+    main()
