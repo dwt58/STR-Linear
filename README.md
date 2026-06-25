@@ -2,9 +2,6 @@
 
 > A linear-based high-performance lightweight model for multivariate time series forecasting
 
-[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-1.9+-red.svg)](https://pytorch.org/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 This repository is the official PyTorch implementation of the paper **"STR-Linear: A linear-based high-performance lightweight model for multivariate time series forecasting"** (Knowledge-Based Systems, 2026).
 
@@ -53,6 +50,11 @@ The STR module captures spatial dependencies missed by the backbone through thre
 Instead of reconstructing the entire sequence, STR learns **residual signals** \( y_{refined} \). The final prediction is \( y = y_{raw} + y_{refined} \), preserving the robust temporal patterns from the backbone while adding precise spatial calibrations.
 
 ---
+
+
+## Experimental Results
+![](https://github.com/dwt58/STR-Linear/blob/main/Figures/Table%202.png)
+
 
 ## 🚀 Quick Start
 
