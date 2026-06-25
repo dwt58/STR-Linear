@@ -56,6 +56,7 @@ Instead of reconstructing the entire sequence, STR learns **residual signals** \
 
 ## Experimental Results
 
+### Main Results
 We compare STR-Linear against recent state‑of‑the‑art models (CDM, CIM, and HCM) on eight datasets. The table below shows average MSE/MAE over all prediction horizons for representative datasets.
 
 ![](https://github.com/dwt58/STR-Linear/blob/main/Figures/Table%202.png)
@@ -65,13 +66,12 @@ We compare STR-Linear against recent state‑of‑the‑art models (CDM, CIM, an
 ### Component Ablation (RCF, Temporal Backbone, STR)
 We evaluate the contribution of each core component. The table reports averaged results on Traffic, PEMS03, and PEMS04.
 
+![](https://github.com/dwt58/STR-Linear/blob/e0fbd20c862283dde3855f7c0742bcbda7cbe18a/Figures/Table%205.png)
 
 Complete model (V) achieves the best overall performance, confirming that all three components cooperate effectively.
 
 
 ### STR Placement Analysis
-
-
 Where should the STR module be inserted? We test five positions:
 
 A: Pre‑processing (before backbone)
@@ -80,7 +80,7 @@ C: Trend component refinement
 D: Post‑processing (after backbone) – our default STR‑Linear
 w/o: Original CycleNet (no STR)
 
-
+![](https://github.com/dwt58/STR-Linear/blob/e0fbd20c862283dde3855f7c0742bcbda7cbe18a/Figures/Table%206.png)
 
 
 
