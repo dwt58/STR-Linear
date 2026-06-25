@@ -50,18 +50,45 @@ The STR module captures spatial dependencies missed by the backbone through thre
 ### 3. Residual Refinement
 Instead of reconstructing the entire sequence, STR learns **residual signals** \( y_{refined} \). The final prediction is \( y = y_{raw} + y_{refined} \), preserving the robust temporal patterns from the backbone while adding precise spatial calibrations.
 
+![](https://github.com/dwt58/STR-Linear/blob/58249144c8cec33c0c37bed919ce3fffc0049899/Figures/Figure%203.png)
 ---
 
 
 ## Experimental Results
+
+We compare STR-Linear against recent state‑of‑the‑art models (CDM, CIM, and HCM) on eight datasets. The table below shows average MSE/MAE over all prediction horizons for representative datasets.
+
 ![](https://github.com/dwt58/STR-Linear/blob/main/Figures/Table%202.png)
 
+### Ablation Studies
 
-## 🚀 Quick Start
+### Component Ablation (RCF, Temporal Backbone, STR)
+We evaluate the contribution of each core component. The table reports averaged results on Traffic, PEMS03, and PEMS04.
 
-### Installation
 
-```bash
-git clone https://github.com/dwt58/STR-Linear.git
-cd STR-Linear
-pip install -r requirements.txt
+Complete model (V) achieves the best overall performance, confirming that all three components cooperate effectively.
+
+
+### STR Placement Analysis
+
+
+Where should the STR module be inserted? We test five positions:
+
+A: Pre‑processing (before backbone)
+B: Periodic component refinement
+C: Trend component refinement
+D: Post‑processing (after backbone) – our default STR‑Linear
+w/o: Original CycleNet (no STR)
+
+
+
+
+
+
+
+
+
+
+
+
+
