@@ -17,7 +17,7 @@ Multivariate Time Series Forecasting (MTSF) is challenging due to the intertwini
 - It introduces a novel **Spatio-Temporal Refiner (STR)** as a lightweight post-processing module. STR leverages cross-channel multi-scale dilated convolutions and attention mechanisms to refine the initial predictions by capturing complex multivariate correlations.
 
 **Key achievement**: STR-Linear reduces parameters by **93.8%** compared to iTransformer, while maintaining competitive or superior prediction accuracy across multiple real-world datasets.
-
+![]()
 ---
 
 ## Core Contributions
