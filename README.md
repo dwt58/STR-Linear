@@ -82,7 +82,7 @@ w/o: Original CycleNet (no STR)
 
 ![](https://github.com/dwt58/STR-Linear/blob/e0fbd20c862283dde3855f7c0742bcbda7cbe18a/Figures/Table%206.png)
 
-## Compatibility Analysis of the STR Module with Other Models
+### Compatibility Analysis of the STR Module with Other Models
 To verify its general applicability, we integrated STR into the classic linear model DLinear and the Transformer-based model iTransformer.
 
 ![](https://github.com/dwt58/STR-Linear/blob/101ebe87e32ef9c87a1c1d32c1809466feab7c2c/Figures/Table%2011.png)
